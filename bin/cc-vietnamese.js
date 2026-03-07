@@ -1,23 +1,25 @@
 #!/usr/bin/env node
 
-import { install, uninstall, status, setup, alias } from '../src/patcher.js';
+import { install, uninstall, update, fix, status, setup, alias } from '../src/patcher.js';
 
 const args = process.argv.slice(2);
 const command = args[0];
 
 const HELP = `
-cc-vietnamese - Fix Vietnamese input in Claude Code
+cc-vietnamese - Fix Vietnamese input in Claude Code (native + npm)
 
 Usage:
-  cc-vietnamese install    Apply Vietnamese IME fix (creates backup)
-  cc-vietnamese uninstall  Restore original Claude Code
-  cc-vietnamese status     Check current patch status
-  cc-vietnamese alias      Add alias to shell config (~/.zshrc)
-  cc-vietnamese setup      Show manual setup instructions
+  cc-vietnamese install    Auto-install npm version, patch, redirect symlink, setup watcher
+  cc-vietnamese update     Update npm version + re-patch + fix symlink
+  cc-vietnamese fix        Fix symlink only (fast, used by auto-fix watcher)
+  cc-vietnamese uninstall  Restore original Claude Code + disable watcher
+  cc-vietnamese status     Check patch status, symlink, watcher
+  cc-vietnamese alias      Add alias to shell config (~/.zshrc or ~/.bashrc)
+  cc-vietnamese setup      Show setup instructions
   cc-vietnamese help       Show this help
 
 Quick Start:
-  sudo cc-vietnamese install && cc-vietnamese alias
+  cc-vietnamese install
 `;
 
 async function main() {
@@ -27,6 +29,12 @@ async function main() {
       break;
     case 'uninstall':
       await uninstall();
+      break;
+    case 'update':
+      await update();
+      break;
+    case 'fix':
+      await fix();
       break;
     case 'status':
       await status();

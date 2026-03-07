@@ -1,7 +1,7 @@
 {
   "name": "cc-vietnamese",
-  "version": "1.0.0",
-  "description": "Fix Vietnamese input in Claude Code CLI",
+  "version": "2.0.0",
+  "description": "Fix Vietnamese input in Claude Code CLI — supports both native binary and npm installations",
   "type": "module",
   "bin": {
     "cc-vietnamese": "./bin/cc-vietnamese.js"
@@ -17,13 +17,17 @@
     "ime",
     "input-method",
     "unikey",
-    "openkey"
+    "openkey",
+    "evkey",
+    "native",
+    "telex",
+    "vni"
   ],
   "author": "",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/quangpl/claude-code-vietnamese"
+    "url": "https://github.com/thotran113254/claude-code-vietnamese"
   },
   "engines": {
     "node": ">=18"

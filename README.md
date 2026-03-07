@@ -1,106 +1,65 @@
 # cc-vietnamese
 
-Fix Vietnamese input in Claude Code CLI.
+Fix Vietnamese input in Claude Code CLI — supports both **native binary** and **npm** installations.
 
-Vietnamese Input Method Editors (IMEs) like **Unikey**, **OpenKey**, **EVKey**, and macOS default Vietnamese input send backspace characters followed by Unicode text when composing diacritics. The Claude Code CLI processes the deletion but fails to insert the remaining characters, causing input loss.
-
-This tool patches the CLI to handle Vietnamese input correctly.
+Vietnamese IMEs (Unikey, OpenKey, EVKey, macOS Vietnamese input) send backspace + replacement characters when composing diacritics. Claude Code processes the deletion but drops the replacement text. This tool patches the CLI to handle each character individually.
 
 ## Quick Start
 
 ```bash
-# 1. Install the tool
 npm install -g cc-vietnamese
-
-sudo npm install -g @anthropic-ai/claude-code@latest
-
-# 3. Apply the Vietnamese fix
-sudo cc-vietnamese install
-
-# 4. Add alias to your shell (auto-detects zsh/bash)
-cc-vietnamese alias
-
-# 5. Reload shell config
-source ~/.zshrc
+cc-vietnamese install
 ```
 
-Or in one line:
+That's it. Works with both native binary and npm installations.
 
-```bash
-sudo npm i -g cc-vietnamese @anthropic-ai/claude-code@latest && sudo cc-vietnamese install && cc-vietnamese alias && source ~/.zshrc
+## How It Works
+
+| Installation Type | Strategy |
+|---|---|
+| **NPM (JavaScript)** | Patches `cli.js` directly |
+| **Native Binary** | Auto-installs npm version to `~/.cc-vietnamese/`, patches it, redirects `~/.local/bin/claude` symlink, sets up systemd watcher to auto-fix after native auto-updates |
+
+### Native Binary Flow
+
 ```
-
-## Important: Binary vs NPM Version
-
-Claude Code has two installation types:
-
-| Type                 | Path                         | Can be patched? |
-| -------------------- | ---------------------------- | --------------- |
-| **Native Binary**    | `~/.local/bin/claude`        | No              |
-| **NPM (JavaScript)** | `/usr/local/node/bin/claude` | **Yes**         |
-
-This tool only patches the **NPM version**. If you're using the binary version (default on macOS), you need to:
-
-1. Install/update the npm version
-2. Apply the patch
-3. Use the npm version instead
-
-Check which version you're using:
-
-```bash
-cc-vietnamese status
-```
-
-## Installation
-
-```bash
-npm install -g cc-vietnamese
+Native auto-update overwrites symlink
+        ↓
+systemd watcher detects change
+        ↓
+cc-vietnamese fix (restores symlink → patched npm version)
 ```
 
 ## Commands
 
-| Command                        | Description                                       |
-| ------------------------------ | ------------------------------------------------- |
-| `sudo cc-vietnamese install`   | Apply Vietnamese IME fix (creates backup)         |
-| `sudo cc-vietnamese uninstall` | Restore original Claude Code from backup          |
-| `cc-vietnamese alias`          | Add alias to shell config (~/.zshrc or ~/.bashrc) |
-| `cc-vietnamese status`         | Show patch status and installation info           |
-| `cc-vietnamese setup`          | Show manual setup instructions                    |
+| Command | Description |
+|---|---|
+| `cc-vietnamese install` | Full setup: install npm version, patch, redirect symlink, setup watcher |
+| `cc-vietnamese update` | Update npm version + re-patch + fix symlink |
+| `cc-vietnamese fix` | Fix symlink only (fast — used by auto-fix watcher) |
+| `cc-vietnamese uninstall` | Restore original Claude Code + disable watcher |
+| `cc-vietnamese status` | Check patch status, symlink, watcher |
+| `cc-vietnamese alias` | Add alias to shell config (~/.zshrc or ~/.bashrc) |
+| `cc-vietnamese setup` | Show setup instructions |
 
-## Using the Patched Version
+## After Claude Updates
 
-After patching, you need to use the npm version of Claude Code.
-
-### Recommended: Use the alias command
-
-```bash
-cc-vietnamese alias
-source ~/.zshrc
-```
-
-This automatically adds the alias to your shell config.
-
-### Alternative: Manual setup
-
-**Direct path:**
+When Claude auto-updates the native binary, the systemd watcher automatically fixes the symlink. If versions diverge significantly, run:
 
 ```bash
-/usr/local/node/bin/claude
+cc-vietnamese update
 ```
 
-**Manual alias** (add to ~/.zshrc):
+## File Locations
 
-```bash
-alias claude="/usr/local/node/bin/claude"
-```
+| File | Path |
+|---|---|
+| NPM version | `~/.cc-vietnamese/` |
+| Patched CLI | `~/.cc-vietnamese/lib/node_modules/@anthropic-ai/claude-code/cli.js` |
+| Symlink | `~/.local/bin/claude` → patched npm version |
+| Watcher units | `~/.config/systemd/user/claude-viet-watcher.*` |
 
-**PATH priority** (add to ~/.zshrc):
-
-```bash
-export PATH="/usr/local/node/bin:$PATH"
-```
-
-## How it works
+## Vietnamese IME Input
 
 Vietnamese IMEs send input like this when typing "việt":
 
@@ -108,64 +67,57 @@ Vietnamese IMEs send input like this when typing "việt":
 v → i → e [DEL] ê → t [DEL] ệ → t
 ```
 
-The original code only handles the DEL character and returns early, losing the replacement text. The fix processes each character individually:
+The original code handles only the DEL and returns early, losing the replacement. The fix processes each character:
+- DEL (0x7f) or BS (0x08): backspace
+- Otherwise: insert the character
 
-```javascript
-// For each character in input:
-// - If DEL (127) or BS (8): backspace
-// - Otherwise: insert the character
-```
+## Supported IME Software
+
+- macOS Vietnamese Input
+- Unikey
+- OpenKey
+- EVKey
+
+## Supported IME Methods
+
+- **Telex**: e.g., "vieejt" → "việt"
+- **VNI**: e.g., "vie6t" → "việt"
+- **VIQR**: ASCII-based
 
 ## Troubleshooting
 
-### Vietnamese still not working
-
-1. Make sure you're using the **npm version**, not the binary:
-
-   ```bash
-   cc-vietnamese status
-   which claude
-   ```
-
-2. Update npm version to latest:
-
-   ```bash
-   sudo npm install -g @anthropic-ai/claude-code@latest
-   sudo cc-vietnamese install
-   ```
-
-3. Restart Claude Code completely
-
-### Permission denied
-
-```bash
-sudo cc-vietnamese install
-```
-
-### Pattern not found
-
-The Claude Code version may have changed. Check compatibility:
+### Check status
 
 ```bash
 cc-vietnamese status
 ```
 
-## Supported IME methods
+### Vietnamese still not working
 
-- **Telex**: Most popular method (e.g., "vieejt" → "việt")
-- **VNI**: Number-based method (e.g., "vie6t" → "việt")
-- **VIQR**: ASCII-based method
+```bash
+# Verify which binary is active
+readlink -f $(which claude)
+# Should point to ~/.cc-vietnamese/lib/node_modules/@anthropic-ai/claude-code/cli.js
 
-## Supported IME software
+# If not, fix it
+cc-vietnamese fix
+```
 
-- macOS Vietnamese Input
-- OpenKey
-- EVKey
-- Unikey (Windows, with Wine on macOS)
+### After major version update
+
+```bash
+cc-vietnamese update
+```
+
+### Permission issues
+
+The tool installs to `~/.cc-vietnamese/` (user directory) — no sudo needed.
 
 ## Credits
 
 Inspired by [claude-code-vime](https://github.com/trancong12102/claude-code-vime) by [@trancong12102](https://github.com/trancong12102).
+
+Original project by [@quangpl](https://github.com/quangpl/claude-code-vietnamese).
 
 ## License
 
