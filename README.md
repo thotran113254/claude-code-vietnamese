@@ -7,11 +7,18 @@ Vietnamese IMEs (Unikey, OpenKey, EVKey, macOS Vietnamese input) send backspace 
 ## Quick Start
 
 ```bash
-npm install -g cc-vietnamese
+# One-liner — no npm publish needed, install directly from GitHub
+npx github:thotran113254/claude-code-vietnamese install
+```
+
+Or install globally for repeated use:
+
+```bash
+npm install -g github:thotran113254/claude-code-vietnamese
 cc-vietnamese install
 ```
 
-That's it. Works with both native binary and npm installations.
+That's it. Works with both native binary and npm installations. No sudo required.
 
 ## How It Works
 
