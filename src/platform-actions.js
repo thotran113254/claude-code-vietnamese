@@ -236,6 +236,7 @@ function setupWatcherLinux() {
 function setupWatcherWindows() {
   const taskName = 'ClaudeVietnameseAutoFix';
   const fixScript = join(LOCAL_PREFIX, 'fix-redirect.cmd');
+  const fixVbs = join(LOCAL_PREFIX, 'fix-redirect.vbs');
   const localBinDir = join(HOME, '.local', 'bin').replace(/\//g, '\\');
   const cliPath = getNpmCliPath().replace(/\//g, '\\');
 
@@ -259,13 +260,17 @@ function setupWatcherWindows() {
     '',
   ].join('\r\n'));
 
+  // VBS wrapper: runs the cmd script silently (no visible window)
+  const fixScriptWin = fixScript.replace(/\//g, '\\');
+  writeFileSync(fixVbs, `CreateObject("WScript.Shell").Run "cmd /c ""${fixScriptWin}""", 0, False\r\n`);
+
   try {
     // Delete existing task if any
     try { execSync(`schtasks /delete /tn "${taskName}" /f 2>nul`, { encoding: 'utf8' }); } catch {}
 
-    const fixScriptWin = fixScript.replace(/\//g, '\\');
+    const fixVbsWin = fixVbs.replace(/\//g, '\\');
     execSync(
-      `schtasks /create /tn "${taskName}" /tr "cmd /c \\"${fixScriptWin}\\"" /sc MINUTE /mo 5 /f`,
+      `schtasks /create /tn "${taskName}" /tr "wscript.exe \\"${fixVbsWin}\\"" /sc MINUTE /mo 5 /f`,
       { encoding: 'utf8' },
     );
     return true;
@@ -295,6 +300,9 @@ export function isWatcherActive() {
 export function disableWatcher() {
   if (IS_WINDOWS) {
     try { execSync('schtasks /delete /tn "ClaudeVietnameseAutoFix" /f 2>nul', { encoding: 'utf8' }); } catch {}
+    // Clean up VBS wrapper
+    const fixVbs = join(LOCAL_PREFIX, 'fix-redirect.vbs');
+    try { if (existsSync(fixVbs)) unlinkSync(fixVbs); } catch {}
     return;
   }
   try { execSync('systemctl --user disable --now claude-viet-watcher.path 2>/dev/null', { encoding: 'utf8' }); } catch {}
