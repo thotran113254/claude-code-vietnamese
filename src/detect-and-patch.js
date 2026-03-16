@@ -131,12 +131,6 @@ export function getActiveClaudeInfo() {
   }
 }
 
-export function getNativeVersionDir() {
-  const dir = join(HOME, '.local/share/claude/versions');
-  if (!existsSync(dir)) return null;
-  return dir;
-}
-
 // ─── Patch Logic ────────────────────────────────────────
 
 export function isPatched(content) {
@@ -172,7 +166,34 @@ export function listBackups(cliPath) {
   } catch { return []; }
 }
 
-function generatePatch(keyVar, inputVar, cursorVar, textUpdateFunc, offsetFunc, cb1, cb2) {
+// Extract variable names from the Vietnamese IME code block (shared by JS and binary patching)
+export function extractPatchVars(block) {
+  const km = block.match(/if\(!([a-zA-Z0-9_$]+)\.backspace/);
+  const im = block.match(/([a-zA-Z0-9_$]+)\.includes\("/);
+  const cm = block.match(/,([a-zA-Z0-9_$]+)=([a-zA-Z0-9_$]+);for/)
+          || block.match(/([a-zA-Z0-9_$]+)=([a-zA-Z0-9_$]+);for/);
+  const cbm = block.match(/([a-zA-Z0-9_$]+)\(\),([a-zA-Z0-9_$]+)\(\);return/);
+
+  let tf, of_;
+  const tfm1 = block.match(/\.text!==\w+\.text\)([a-zA-Z0-9_$]+)\(/);
+  const ofm1 = block.match(/\.text\);([a-zA-Z0-9_$]+)\(\w+\.offset\)/);
+  if (tfm1 && ofm1) { tf = tfm1[1]; of_ = ofm1[1]; }
+  else {
+    const tfm2 = block.match(/([a-zA-Z0-9_$]+)\([a-zA-Z0-9_$]+\.text\)/);
+    const ofm2 = block.match(/([a-zA-Z0-9_$]+)\([a-zA-Z0-9_$]+\.offset\)/);
+    if (tfm2 && ofm2) { tf = tfm2[1]; of_ = ofm2[1]; }
+  }
+
+  if (!km || !im || !cm || !tf || !of_) return null;
+
+  return {
+    keyVar: km[1], inputVar: im[1], cursorVar: cm[2],
+    textFunc: tf, offsetFunc: of_,
+    cb1: cbm?.[1] || null, cb2: cbm?.[2] || null,
+  };
+}
+
+export function generatePatch(keyVar, inputVar, cursorVar, textUpdateFunc, offsetFunc, cb1, cb2) {
   let p = `if(!${keyVar}.backspace&&!${keyVar}.delete&&(${inputVar}.includes("\\x7f")||${inputVar}.includes("\\x08"))){${PATCH_MARKER}`;
   p += `let _v=${cursorVar};`;
   p += `for(let _i=0;_i<${inputVar}.length;_i++){`;
@@ -210,25 +231,9 @@ export function applyPatch(content) {
   const original = content.substring(start, end);
   if (original.includes(PATCH_MARKER)) return content;
 
-  const km = original.match(/if\(!([a-zA-Z0-9_$]+)\.backspace/);
-  const im = original.match(/([a-zA-Z0-9_$]+)\.includes\("/);
-  const cm = original.match(/,([a-zA-Z0-9_$]+)=([a-zA-Z0-9_$]+);for/) || original.match(/([a-zA-Z0-9_$]+)=([a-zA-Z0-9_$]+);for/);
-  const cbm = original.match(/([a-zA-Z0-9_$]+)\(\),([a-zA-Z0-9_$]+)\(\);return/);
+  const vars = extractPatchVars(original);
+  if (!vars) return null;
 
-  let tf, of_;
-  const tfm1 = original.match(/\.text!==\w+\.text\)([a-zA-Z0-9_$]+)\(/);
-  const ofm1 = original.match(/\.text\);([a-zA-Z0-9_$]+)\(\w+\.offset\)/);
-
-  if (tfm1 && ofm1) {
-    tf = tfm1[1]; of_ = ofm1[1];
-  } else {
-    const tfm2 = original.match(/([a-zA-Z0-9_$]+)\([a-zA-Z0-9_$]+\.text\)/);
-    const ofm2 = original.match(/([a-zA-Z0-9_$]+)\([a-zA-Z0-9_$]+\.offset\)/);
-    if (tfm2 && ofm2) { tf = tfm2[1]; of_ = ofm2[1]; }
-  }
-
-  if (!km || !im || !cm || !tf || !of_) return null;
-
-  const patch = generatePatch(km[1], im[1], cm[2], tf, of_, cbm?.[1], cbm?.[2]);
+  const patch = generatePatch(vars.keyVar, vars.inputVar, vars.cursorVar, vars.textFunc, vars.offsetFunc, vars.cb1, vars.cb2);
   return content.substring(0, start) + patch + content.substring(end);
 }

@@ -1,6 +1,6 @@
 {
   "name": "cc-vietnamese",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "description": "Fix Vietnamese input in Claude Code CLI — patches your system Claude Code directly, no separate install needed",
   "type": "module",
   "bin": {

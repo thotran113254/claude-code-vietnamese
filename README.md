@@ -4,8 +4,9 @@ Fix Vietnamese input in Claude Code CLI — patches your system Claude Code dire
 
 Vietnamese IMEs (Unikey, OpenKey, EVKey, macOS Vietnamese input) send backspace + replacement characters when composing diacritics. Claude Code processes the deletion but drops the replacement text. This tool patches the CLI to handle each character individually.
 
-## ✨ What's New in v3
+## ✨ What's New in v3.1
 
+- **Native binary support** — patches both npm and native binary Claude Code installations
 - **No separate install** — patches your system Claude Code directly
 - **No symlink redirect** — `claude` command stays exactly as the system configured it
 - **No watcher/systemd** — no background services interfering with Claude updates
@@ -29,17 +30,17 @@ That's it. Works on Windows, Linux, macOS. No sudo/admin required.
 
 ## How It Works
 
-The tool finds your system's Claude Code `cli.js` and patches it in-place:
+The tool auto-detects your Claude Code installation (npm or native binary) and patches it in-place:
 
 ```
 claude update          → Claude Code updates normally
                        ↓
-cc-vietnamese fix      → Re-patches the updated cli.js
+cc-vietnamese fix      → Re-patches the updated installation
                        ↓
 claude                 → Vietnamese IME works ✓
 ```
 
-**No separate npm install. No symlink hijacking. No background watchers.**
+**Supports both npm (`cli.js`) and native binary installations.** No symlink hijacking. No background watchers.
 
 ## Commands
 
