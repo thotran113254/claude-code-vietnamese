@@ -1,28 +1,21 @@
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync, existsSync, realpathSync, readdirSync, copyFileSync } from 'fs';
 import { dirname, join, basename } from 'path';
-import { IS_WINDOWS, HOME, LOCAL_PREFIX, PATCH_MARKER, BACKUP_PREFIX } from './utils.js';
+import { IS_WINDOWS, HOME, PATCH_MARKER, BACKUP_PREFIX } from './utils.js';
 
 // ─── Detection ──────────────────────────────────────────
 
 export function isJavaScriptFile(filePath) {
   try {
-    // Skip .cmd/.bat wrappers — they are not patchable JS
     if (IS_WINDOWS && /\.(cmd|bat)$/i.test(filePath)) return false;
-
     const buffer = readFileSync(filePath);
     const firstTwo = buffer.slice(0, 2).toString();
-    // Skip shell wrapper scripts (small bash scripts that just call node)
     if (firstTwo === '#!' && buffer.length < 500) return false;
     if (firstTwo === '#!') return true;
-    // PE (Windows .exe) - MZ header
     if (firstTwo === 'MZ') return false;
-    // CMD/batch file starting with @echo
     if (buffer.slice(0, 5).toString().toLowerCase() === '@echo') return false;
     const magic = buffer.slice(0, 4).toString('hex');
-    // Mach-O
     if (['cafebabe', 'cffaedfe', 'cefaedfe'].includes(magic)) return false;
-    // ELF
     if (magic === '7f454c46') return false;
     return true;
   } catch {
@@ -30,14 +23,10 @@ export function isJavaScriptFile(filePath) {
   }
 }
 
-export function getNpmCliPath() {
-  // Windows: {prefix}/node_modules/...  Unix: {prefix}/lib/node_modules/...
-  if (IS_WINDOWS) {
-    return join(LOCAL_PREFIX, 'node_modules/@anthropic-ai/claude-code/cli.js');
-  }
-  return join(LOCAL_PREFIX, 'lib/node_modules/@anthropic-ai/claude-code/cli.js');
-}
-
+/**
+ * Find all Claude Code installations on the system.
+ * This searches via which/where and common npm paths.
+ */
 export function findAllClaudeInstallations() {
   const installations = [];
 
@@ -63,7 +52,7 @@ export function findAllClaudeInstallations() {
   } catch {}
 
   // Common npm paths
-  const npmPaths = [getNpmCliPath()];
+  const npmPaths = [];
 
   if (IS_WINDOWS) {
     const appData = process.env.APPDATA || join(HOME, 'AppData/Roaming');
@@ -94,19 +83,30 @@ export function findAllClaudeInstallations() {
   return installations;
 }
 
-export function findClaudeCli() {
+/**
+ * Find the active Claude CLI that the system is currently using.
+ * Returns the real path to cli.js if it's a JavaScript file.
+ */
+export function findSystemClaudeCli() {
+  // First try: find via which/where (the one the user actually runs)
+  try {
+    const cmd = IS_WINDOWS ? 'where claude' : '/bin/bash -c "which claude"';
+    const result = execSync(cmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] }).trim().split('\n')[0].replace(/\r/g, '');
+    const realPath = realpathSync(result);
+    if (isJavaScriptFile(realPath)) return realPath;
+  } catch {}
+
+  // Second try: find any npm installation
   const installations = findAllClaudeInstallations();
   const jsInstall = installations.find(i => i.isJavaScript);
-  if (!jsInstall) {
-    throw new Error(
-      'No patchable Claude Code installation found.\n\n' +
-      'Run: cc-vietnamese install\n' +
-      'This will auto-install the npm version for patching.\n\n' +
-      'Found installations:\n' +
-      installations.map(i => `  ${i.type}: ${i.path}`).join('\n')
-    );
-  }
-  return jsInstall.path;
+  if (jsInstall) return jsInstall.path;
+
+  throw new Error(
+    'No patchable Claude Code installation found.\n\n' +
+    'Please install Claude Code first:\n' +
+    '  npm install -g @anthropic-ai/claude-code\n\n' +
+    'Then run: cc-vietnamese patch'
+  );
 }
 
 export function getActiveClaudeInfo() {

@@ -2,7 +2,6 @@ import { join } from 'path';
 
 export const IS_WINDOWS = process.platform === 'win32';
 export const HOME = process.env.USERPROFILE || process.env.HOME || '';
-export const LOCAL_PREFIX = join(HOME, '.cc-vietnamese');
 export const PATCH_MARKER = '/* Vietnamese IME fix */';
 export const BACKUP_PREFIX = '.backup.';
 

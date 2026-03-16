@@ -1,7 +1,7 @@
 {
   "name": "cc-vietnamese",
-  "version": "2.0.0",
-  "description": "Fix Vietnamese input in Claude Code CLI — supports both native binary and npm installations",
+  "version": "3.0.0",
+  "description": "Fix Vietnamese input in Claude Code CLI — patches your system Claude Code directly, no separate install needed",
   "type": "module",
   "bin": {
     "cc-vietnamese": "./bin/cc-vietnamese.js"
@@ -19,7 +19,6 @@
     "unikey",
     "openkey",
     "evkey",
-    "native",
     "telex",
     "vni"
   ],

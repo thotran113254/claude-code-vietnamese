@@ -6,25 +6,29 @@ const args = process.argv.slice(2);
 const command = args[0];
 
 const HELP = `
-cc-vietnamese - Fix Vietnamese input in Claude Code (Windows + Linux + macOS)
+cc-vietnamese - Fix Vietnamese input in Claude Code CLI
 
 Usage:
-  cc-vietnamese install    Auto-install npm version, patch, redirect command, setup watcher
-  cc-vietnamese update     Update npm version + re-patch + fix redirect
-  cc-vietnamese fix        Fix redirect after native auto-update
-  cc-vietnamese uninstall  Restore original Claude Code + disable watcher
-  cc-vietnamese status     Check patch status, redirect, watcher
-  cc-vietnamese alias      Add alias to shell config (PowerShell / bash / zsh)
+  cc-vietnamese install    Patch Vietnamese IME fix into Claude Code
+  cc-vietnamese update     Update Claude Code + re-patch
+  cc-vietnamese fix        Re-patch after Claude Code updates
+  cc-vietnamese uninstall  Remove patch, restore original
+  cc-vietnamese status     Check patch status
   cc-vietnamese setup      Show setup instructions
   cc-vietnamese help       Show this help
 
 Quick Start:
-  cc-vietnamese install
+  npm install -g @anthropic-ai/claude-code   # Install Claude Code (if not installed)
+  cc-vietnamese install                       # Patch Vietnamese IME fix
+
+After Claude updates:
+  cc-vietnamese fix                           # Re-patch after "claude update"
 `;
 
 async function main() {
   switch (command) {
     case 'install':
+    case 'patch':
       await install();
       break;
     case 'uninstall':
