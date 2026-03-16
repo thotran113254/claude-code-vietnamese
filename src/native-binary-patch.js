@@ -76,13 +76,21 @@ export function findNativeBinaryLatestBackup(binaryPath) {
 function generateSameLengthPatch(originalBlock, vars) {
   const { keyVar, inputVar, cursorVar, textFunc, offsetFunc, cb1, cb2 } = vars;
 
-  // Core patch WITHOUT any marker - process each char individually
-  let core = `if(!${keyVar}.backspace&&!${keyVar}.delete&&${inputVar}.includes("\\x7F")){`;
-  core += `let O=${cursorVar};for(let i=0;i<${inputVar}.length;i++)`;
-  core += `O=/[\\x7F\\b]/.test(${inputVar}[i])?O.deleteTokenBefore?.()??O.backspace():O.insert(${inputVar}[i]);`;
-  core += `if(!${cursorVar}.equals(O)){if(${cursorVar}.text!==O.text)${textFunc}(O.text);${offsetFunc}(O.offset)}`;
-  if (cb1 && cb2) core += `${cb1}(),${cb2}();`;
-  core += `return}`;
+  // Build core patch - try with optional chaining first, fall back without
+  function buildCore(optChain) {
+    const del = optChain ? 'O.deleteTokenBefore?.()??O.backspace()' : 'O.deleteTokenBefore()??O.backspace()';
+    let c = `if(!${keyVar}.backspace&&!${keyVar}.delete&&${inputVar}.includes("\\x7F")){`;
+    c += `let O=${cursorVar};for(let i=0;i<${inputVar}.length;i++)`;
+    c += `O=/[\\x7F\\b]/.test(${inputVar}[i])?${del}:O.insert(${inputVar}[i]);`;
+    c += `if(!${cursorVar}.equals(O)){if(${cursorVar}.text!==O.text)${textFunc}(O.text);${offsetFunc}(O.offset)}`;
+    if (cb1 && cb2) c += `${cb1}(),${cb2}();`;
+    c += `return}`;
+    return c;
+  }
+
+  // Prefer optional chaining; fall back if it doesn't fit
+  let core = buildCore(true);
+  if (originalBlock.length - core.length < 0) core = buildCore(false);
 
   const available = originalBlock.length - core.length;
 
