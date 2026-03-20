@@ -76,12 +76,12 @@ export function findNativeBinaryLatestBackup(binaryPath) {
 function generateSameLengthPatch(originalBlock, vars) {
   const { keyVar, inputVar, cursorVar, textFunc, offsetFunc, cb1, cb2 } = vars;
 
-  // Build core patch - try with optional chaining first, fall back without
+  // Build core patch using for...of (compact, saves ~18-20 bytes vs indexed loop)
   function buildCore(optChain) {
     const del = optChain ? 'O.deleteTokenBefore?.()??O.backspace()' : 'O.deleteTokenBefore()??O.backspace()';
     let c = `if(!${keyVar}.backspace&&!${keyVar}.delete&&${inputVar}.includes("\\x7F")){`;
-    c += `let O=${cursorVar};for(let i=0;i<${inputVar}.length;i++)`;
-    c += `O=/[\\x7F\\b]/.test(${inputVar}[i])?${del}:O.insert(${inputVar}[i]);`;
+    c += `let O=${cursorVar};for(let c of ${inputVar})`;
+    c += `O=/[\\x7F\\b]/.test(c)?${del}:O.insert(c);`;
     c += `if(!${cursorVar}.equals(O)){if(${cursorVar}.text!==O.text)${textFunc}(O.text);${offsetFunc}(O.offset)}`;
     if (cb1 && cb2) c += `${cb1}(),${cb2}();`;
     c += `return}`;
