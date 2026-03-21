@@ -1,5 +1,5 @@
 import { readFileSync, writeFileSync, copyFileSync } from 'fs';
-import { colors } from './utils.js';
+import { colors, warnIfClaudeRunning } from './utils.js';
 import { execSync } from 'child_process';
 import {
   findAllClaudeInstallations, findSystemClaudeCli, getActiveClaudeInfo,
@@ -62,6 +62,7 @@ function showActiveInfo() {
 
 export async function install() {
   console.log(colors.cyan('Vietnamese IME Fix for Claude Code\n'));
+  warnIfClaudeRunning();
   showActiveInfo();
 
   let jsOk = false, binOk = false;
@@ -89,6 +90,7 @@ export async function install() {
 
 export async function uninstall() {
   console.log(colors.cyan('Restoring Claude Code\n'));
+  warnIfClaudeRunning();
   let restored = false;
 
   let cliPath = null;
@@ -113,20 +115,42 @@ export async function uninstall() {
 
 export async function update() {
   console.log(colors.cyan('Updating Claude Code + Vietnamese IME\n'));
+  const claudeRunning = warnIfClaudeRunning();
+
+  // Detect installation type
+  const active = getActiveClaudeInfo();
+  const isNpm = active?.isJavaScript || active?.type === 'npm';
+  const hasBinary = !!findNativeBinary();
 
   console.log('[1/3] Updating Claude Code...');
-  try {
-    const output = execSync('claude update', { encoding: 'utf8', timeout: 120000, stdio: ['pipe', 'pipe', 'pipe'] });
-    console.log(`  ${output.trim().split('\n').join('\n  ')}`);
-  } catch (err) {
-    const out = (err.stdout?.toString() || '') + (err.stderr?.toString() || '');
-    if (out.includes('already') || out.includes('up to date')) {
-      console.log(colors.green('  Already up to date'));
-    } else {
-      try {
-        execSync('npm update -g @anthropic-ai/claude-code', { encoding: 'utf8', timeout: 120000 });
-        console.log(colors.green('  Updated via npm'));
-      } catch { console.log(colors.yellow('  Could not auto-update. Update manually.')); }
+  if (claudeRunning) {
+    console.log(colors.dim('  Skipped: close Claude Code first to run "claude update"'));
+  } else {
+    // Try `claude update` first (works for both npm and native binary)
+    try {
+      const output = execSync('claude update', { encoding: 'utf8', timeout: 120000, stdio: ['pipe', 'pipe', 'pipe'] });
+      const text = output.trim();
+      if (text.includes('up to date') || text.includes('already')) {
+        console.log(colors.green('  Already up to date'));
+      } else {
+        console.log(`  ${text.split('\n').join('\n  ')}`);
+      }
+    } catch (err) {
+      const out = (err.stdout?.toString() || '') + (err.stderr?.toString() || '');
+      if (out.includes('already') || out.includes('up to date')) {
+        console.log(colors.green('  Already up to date'));
+      } else if (isNpm) {
+        try {
+          execSync('npm update -g @anthropic-ai/claude-code', { encoding: 'utf8', timeout: 120000 });
+          console.log(colors.green('  Updated via npm'));
+        } catch {
+          console.log(colors.yellow('  npm update failed. Try manually: npm update -g @anthropic-ai/claude-code'));
+        }
+      } else if (hasBinary) {
+        console.log(colors.yellow('  Native binary update failed. Try manually: claude update'));
+      } else {
+        console.log(colors.yellow('  Could not auto-update. Update Claude Code manually.'));
+      }
     }
   }
 
@@ -145,6 +169,7 @@ export async function update() {
 
 export async function fix() {
   console.log(colors.cyan('Re-patching Claude Code after update\n'));
+  warnIfClaudeRunning();
 
   let cliPath = null;
   try { cliPath = findSystemClaudeCli(); } catch {}

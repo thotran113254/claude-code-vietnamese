@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, copyFileSync } from 'fs';
 import { join, dirname, basename } from 'path';
+import { execSync } from 'child_process';
 import { IS_WINDOWS, HOME, PATCH_MARKER, BACKUP_PREFIX } from './utils.js';
 import { extractPatchVars } from './detect-and-patch.js';
 
@@ -12,6 +13,11 @@ function getNativeVersionsDir() {
   const candidates = [join(HOME, '.local/share/claude/versions')];
   if (process.platform === 'darwin') {
     candidates.push(join(HOME, 'Library/Application Support/claude/versions'));
+  }
+  if (IS_WINDOWS) {
+    const localAppData = process.env.LOCALAPPDATA || join(HOME, 'AppData/Local');
+    candidates.push(join(localAppData, 'Programs/claude/versions'));
+    candidates.push(join(localAppData, 'claude/versions'));
   }
   for (const dir of candidates) {
     if (existsSync(dir)) return dir;
@@ -199,5 +205,15 @@ export function applyNativeBinaryPatch(binaryPath) {
   if (patchedCount === 0) return null;
 
   writeFileSync(binaryPath, buf);
+
+  // Re-sign binary on macOS (patching invalidates code signature)
+  if (process.platform === 'darwin') {
+    try {
+      execSync(`codesign --force --sign - "${binaryPath}"`, { stdio: 'ignore' });
+    } catch {
+      // codesign may not be available or may fail — non-fatal
+    }
+  }
+
   return { patchedCount };
 }
