@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, existsSync, readdirSync, copyFileSync } from 'fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync, copyFileSync, renameSync, unlinkSync, chmodSync, statSync } from 'fs';
 import { join, dirname, basename } from 'path';
 import { execSync } from 'child_process';
 import { IS_WINDOWS, HOME, PATCH_MARKER, BACKUP_PREFIX } from './utils.js';
@@ -204,7 +204,17 @@ export function applyNativeBinaryPatch(binaryPath) {
 
   if (patchedCount === 0) return null;
 
-  writeFileSync(binaryPath, buf);
+  // Write patched binary — use temp file + rename to handle ETXTBSY (binary running)
+  const tmpPath = binaryPath + '.patching';
+  try {
+    writeFileSync(tmpPath, buf);
+    // Preserve original file permissions
+    try { chmodSync(tmpPath, statSync(binaryPath).mode); } catch {}
+    renameSync(tmpPath, binaryPath);
+  } catch (err) {
+    try { unlinkSync(tmpPath); } catch {}
+    throw err;
+  }
 
   // Re-sign binary on macOS (patching invalidates code signature)
   if (process.platform === 'darwin') {
